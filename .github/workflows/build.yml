@@ -1,4 +1,4 @@
-# Written: 2026-10-29 21:30, updated 2026-10-29 23:15 (Asia/Jerusalem)
+# Written: 2026-10-29 21:30, updated 2026-10-30 00:00 (Asia/Jerusalem)
 # Builds a signed APK on every push to main and publishes it as the latest GitHub Release.
 # Download link (always the newest build):
 # https://github.com/yoeldru/shabat-alarm-clock/releases/latest/download/shabat-alarm-clock.apk
@@ -32,8 +32,14 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           gradle :app:assembleRelease --no-daemon --stacktrace
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk shabat-alarm-clock.apk
+      - name: Rename APK + write version.json (read by the in-app updater)
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk shabat-alarm-clock.apk
+          jq -n --argjson code ${{ github.run_number }} \
+                --arg name "1.0.${{ github.run_number }}" \
+                --rawfile notes release-notes.txt \
+                '{versionCode: $code, versionName: $name, notes: ($notes | rtrimstr("\n"))}' > version.json
+          cat version.json
 
       - uses: actions/upload-artifact@v4
         with:
@@ -45,5 +51,8 @@ jobs:
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: שעון מעורר לשבת 1.0.${{ github.run_number }}
-          files: shabat-alarm-clock.apk
+          body_path: release-notes.txt
+          files: |
+            shabat-alarm-clock.apk
+            version.json
           make_latest: true

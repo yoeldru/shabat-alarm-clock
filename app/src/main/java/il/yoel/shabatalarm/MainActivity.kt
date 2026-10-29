@@ -1,7 +1,10 @@
-// Written: 2026-10-29 21:50, updated 2026-10-29 23:50 (Asia/Jerusalem)
+// Written: 2026-10-29 21:50, updated 2026-10-29 23:58 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.Manifest
+import androidx.core.content.FileProvider
+import com.google.android.material.progressindicator.LinearProgressIndicator
+import kotlin.concurrent.thread
 import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -49,6 +52,8 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, EditAlarmActivity::class.java))
         }
         findViewById<Button>(R.id.permFix).setOnClickListener { fixNextPermission() }
+        Updater.scheduleBackgroundCheck(this)
+        if (intent.getBooleanExtra(EXTRA_SHOW_UPDATE, false)) forceUpdateDialog = true
 
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -58,8 +63,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_SHOW_UPDATE, false)) forceUpdateDialog = true
+    }
+
     override fun onResume() {
         super.onResume()
+        checkForUpdate()
         AlarmScheduler.scheduleAll(this)
         render()
         refreshPermissions()
@@ -185,6 +196,10 @@ class MainActivity : AppCompatActivity() {
     // ---------- menu ----------
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        val hasUpdate = Updater.pendingUpdate(this) != null
+        menu.add(0, 5, 0, if (hasUpdate) "עדכון זמין" else "בדיקת עדכונים")
+            .setIcon(if (hasUpdate) R.drawable.ic_update_dot else R.drawable.ic_update)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
         menu.add(0, 1, 0, "שיתוף האפליקציה").setIcon(R.drawable.ic_share)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
         menu.add(0, 4, 1, "הגדרות ברירת מחדל")
@@ -196,6 +211,7 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             1 -> shareApp()
+            5 -> manualUpdateCheck()
             2 -> testRing()
             4 -> startActivity(
                 Intent(this, EditAlarmActivity::class.java).putExtra(EditAlarmActivity.EXTRA_DEFAULTS, true)
@@ -249,7 +265,103 @@ class MainActivity : AppCompatActivity() {
         list.postDelayed({ AlarmStore.delete(this, TEST_ID); render() }, 1500)
     }
 
+    // ---------- updates ----------
+
+    private var forceUpdateDialog = false
+
+    /** Quietly checks on every open; pops a dialog once per app session if a newer build exists */
+    private fun checkForUpdate() {
+        showUpdateIfPending()
+        thread {
+            val info = Updater.fetch() ?: return@thread
+            Updater.remember(this, info)
+            runOnUiThread { if (!isFinishing) showUpdateIfPending() }
+        }
+    }
+
+    private fun showUpdateIfPending() {
+        invalidateOptionsMenu() // red dot on / off
+        val info = Updater.pendingUpdate(this)
+        if (info == null) { Updater.clearNotification(this); return }
+        if (updateDialogShown && !forceUpdateDialog) return
+        updateDialogShown = true
+        forceUpdateDialog = false
+        showUpdateDialog(info)
+    }
+
+    private fun manualUpdateCheck() {
+        Updater.pendingUpdate(this)?.let { showUpdateDialog(it); return }
+        Toast.makeText(this, "בודק עדכונים…", Toast.LENGTH_SHORT).show()
+        thread {
+            val info = Updater.fetch()
+            runOnUiThread {
+                if (info == null) {
+                    Toast.makeText(this, "אין חיבור — נסה שוב מאוחר יותר", Toast.LENGTH_LONG).show()
+                } else {
+                    Updater.remember(this, info)
+                    invalidateOptionsMenu()
+                    if (info.versionCode > Updater.currentVersionCode(this)) showUpdateDialog(info)
+                    else Toast.makeText(this, "יש לך את הגרסה האחרונה (${Updater.currentVersionName(this)})", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun showUpdateDialog(info: UpdateInfo) {
+        val notes = info.notes.ifBlank { "שיפורים ותיקונים." }
+        AlertDialog.Builder(this)
+            .setTitle("🔴 עדכון זמין — גרסה ${info.versionName}")
+            .setMessage("הגרסה שלך: ${Updater.currentVersionName(this)}\n\nמה חדש:\n$notes\n\nהשעונים וההגדרות שלך יישמרו.")
+            .setPositiveButton("עדכון עכשיו") { _, _ -> startUpdate() }
+            .setNegativeButton("לא עכשיו", null)
+            .show()
+    }
+
+    private fun startUpdate() {
+        // Android requires a one-time approval to install updates from this app
+        if (!packageManager.canRequestPackageInstalls()) {
+            Toast.makeText(this, "אשר 'התרה ממקור זה', חזור, ולחץ שוב על עדכון", Toast.LENGTH_LONG).show()
+            startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+            )
+            return
+        }
+        val bar = LinearProgressIndicator(this).apply { max = 100; isIndeterminate = true }
+        val box = LinearLayout(this).apply {
+            setPadding(60, 40, 60, 10)
+            addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+        val dlg = AlertDialog.Builder(this)
+            .setTitle("מוריד עדכון…")
+            .setView(box)
+            .setCancelable(false)
+            .show()
+        thread {
+            try {
+                val file = Updater.download(this) { pct ->
+                    runOnUiThread { bar.isIndeterminate = false; bar.setProgressCompat(pct, true) }
+                }
+                runOnUiThread {
+                    dlg.dismiss()
+                    val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
+                    startActivity(
+                        Intent(Intent.ACTION_VIEW)
+                            .setDataAndType(uri, "application/vnd.android.package-archive")
+                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    dlg.dismiss()
+                    Toast.makeText(this, "ההורדה נכשלה — בדוק חיבור ונסה שוב", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
     companion object {
+        const val EXTRA_SHOW_UPDATE = "show_update"
+        private var updateDialogShown = false
         const val APK_URL =
             "https://github.com/yoeldru/shabat-alarm-clock/releases/latest/download/shabat-alarm-clock.apk"
         private const val TEST_ID = 999999
