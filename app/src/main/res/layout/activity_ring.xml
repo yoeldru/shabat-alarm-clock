@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Written: 2026-10-29 21:45 (Asia/Jerusalem) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ring_bg"
+    android:gravity="center"
+    android:layoutDirection="rtl"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <ImageView
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_alarm"
+        android:tint="@color/ring_accent" />
+
+    <TextView
+        android:id="@+id/ringClock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textColor="#FFFFFF"
+        android:textSize="84sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/ringLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#E6EEF8"
+        android:textSize="26sp" />
+
+    <TextView
+        android:id="@+id/ringCountdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:textColor="#A9B8CC"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/shabbatNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="40dp"
+        android:gravity="center"
+        android:text="מצב שבת\nהצלצול ייפסק מעצמו"
+        android:textColor="@color/ring_accent"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/btnSnooze"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:layout_marginTop="48dp"
+        android:backgroundTint="#2E4A6E"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:layout_marginTop="16dp"
+        android:backgroundTint="@color/ring_accent"
+        android:text="כיבוי"
+        android:textColor="#10233D"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+</LinearLayout>

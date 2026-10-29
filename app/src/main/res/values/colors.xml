@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Written: 2026-10-29 22:00 (Asia/Jerusalem) -->
+<resources>
+    <color name="brand">#1E4F8C</color>
+    <color name="brand_light">#9CC2F0</color>
+    <color name="gold">#F2B544</color>
+    <color name="ring_bg">#0F1C2E</color>
+    <color name="ring_accent">#F2B544</color>
+    <color name="warn_bg">#FFF1D6</color>
+    <color name="warn_text">#5C3B00</color>
+    <color name="icon_bg">#14325A</color>
+</resources>

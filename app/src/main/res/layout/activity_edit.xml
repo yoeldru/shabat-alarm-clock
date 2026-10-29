@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Written: 2026-10-29 21:55 (Asia/Jerusalem) -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layoutDirection="rtl">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TimePicker
+            android:id="@+id/timePicker"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layoutDirection="ltr"
+            android:timePickerMode="spinner" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="שם השעון (לא חובה)">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/labelInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Days -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="ימים (בלי סימון = חד-פעמי)" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/daysGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:chipSpacingHorizontal="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnWeekdays"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="א'-ה'" />
+
+            <Button
+                android:id="@+id/btnEveryday"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="כל יום" />
+
+            <Button
+                android:id="@+id/btnShabbatDays"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="שבת בלבד" />
+        </LinearLayout>
+
+        <!-- Ring length -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="משך הצלצול" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="כמה שניות לצלצל (1–3600)"
+            app:helperText="אחרי הזמן הזה הצלצול נפסק מעצמו">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/secondsInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:maxLength="4" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Sound -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="צליל" />
+
+        <TextView
+            android:id="@+id/soundName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnRingtone"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:text="צליל מהטלפון" />
+
+            <Button
+                android:id="@+id/btnFile"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="קובץ שמע משלי" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnPreview"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="▶ השמעה לבדיקה" />
+
+        <!-- Mode -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="צליל / רטט" />
+
+        <RadioGroup
+            android:id="@+id/modeGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/modeSound"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="צליל בלבד" />
+
+            <RadioButton
+                android:id="@+id/modeBoth"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="צליל + רטט" />
+
+            <RadioButton
+                android:id="@+id/modeVibrate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="רטט בלבד" />
+        </RadioGroup>
+
+        <!-- Volume -->
+        <TextView
+            android:id="@+id/volumeTitle"
+            style="@style/SectionTitle"
+            android:text="עוצמה" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/volumeSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stepSize="5"
+            android:valueFrom="5"
+            android:valueTo="100" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/gradualSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="עוצמה עולה בהדרגה" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/gradualLayout"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="תוך כמה שניות להגיע לעוצמה מלאה">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/gradualInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:maxLength="4" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Shabbat -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="מצב שבת וחג" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/shabbatSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🕯️ אי אפשר לכבות את הצלצול" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.7"
+            android:text="במצב שבת אין כפתורי כיבוי ונודניק — הצלצול נמשך את מספר השניות שנקבע ונפסק מעצמו."
+            android:textSize="13sp" />
+
+        <!-- Snooze -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="נודניק" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/snoozeSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="לאפשר נודניק" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/snoozeLayout"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="דקות נודניק (1–60)">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/snoozeInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:maxLength="2" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="24dp"
+            android:text="שמירה"
+            android:textSize="18sp" />
+
+        <Button
+            android:id="@+id/btnDelete"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="מחיקת השעון"
+            android:textColor="#C62828" />
+    </LinearLayout>
+</ScrollView>

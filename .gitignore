@@ -1,0 +1,6 @@
+# Written: 2026-10-29 21:30 (Asia/Jerusalem)
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
