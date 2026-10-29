@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:50 (Asia/Jerusalem)
+// Written: 2026-10-29 21:50, updated 2026-10-29 23:50 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.Manifest
@@ -86,7 +86,10 @@ class MainActivity : AppCompatActivity() {
                 RingMode.SOUND_VIBRATE -> tags.add("צליל+רטט")
                 else -> tags.add("צליל")
             }
-            if (!a.shabbat) tags.add(if (a.snoozeEnabled) "נודניק ${a.snoozeMinutes} ד'" else "בלי נודניק")
+            if (!a.shabbat) tags.add(
+                if (!a.snoozeEnabled) "בלי נודניק"
+                else "נודניק ${a.snoozeMinutes} ד' × " + (if (a.snoozeMax == 0) "∞" else a.snoozeMax.toString())
+            )
             if (a.snoozeAt > System.currentTimeMillis()) tags.add("⏸ בנודניק")
             v.findViewById<TextView>(R.id.itemInfo).text = tags.joinToString(" · ")
 
@@ -184,8 +187,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(0, 1, 0, "שיתוף האפליקציה").setIcon(R.drawable.ic_share)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-        menu.add(0, 2, 1, "בדיקת צלצול (10 שניות)")
-        menu.add(0, 3, 2, "הגדרות 'נא לא להפריע'")
+        menu.add(0, 4, 1, "הגדרות ברירת מחדל")
+        menu.add(0, 2, 2, "בדיקת צלצול (10 שניות)")
+        menu.add(0, 3, 3, "הגדרות 'נא לא להפריע'")
         return true
     }
 
@@ -193,6 +197,9 @@ class MainActivity : AppCompatActivity() {
         when (item.itemId) {
             1 -> shareApp()
             2 -> testRing()
+            4 -> startActivity(
+                Intent(this, EditAlarmActivity::class.java).putExtra(EditAlarmActivity.EXTRA_DEFAULTS, true)
+            )
             3 -> AlertDialog.Builder(this)
                 .setTitle("נא לא להפריע")
                 .setMessage(
@@ -227,11 +234,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun testRing() {
-        val test = Alarm(id = TEST_ID, label = "בדיקת צלצול", ringSeconds = 10, days = 0)
-        AlarmStore.all(this).firstOrNull()?.let {
-            test.soundUri = it.soundUri; test.mode = it.mode; test.volume = it.volume
-        }
-        test.enabled = false
+        // Test with the default settings, shortened to 10 seconds
+        val test = AlarmDefaults.get(this).copy(
+            id = TEST_ID, label = "בדיקת צלצול", ringSeconds = 10, days = 0,
+            enabled = false, shabbat = false, gradual = false
+        )
         AlarmStore.save(this, test)
         startService(
             Intent(this, AlarmService::class.java)

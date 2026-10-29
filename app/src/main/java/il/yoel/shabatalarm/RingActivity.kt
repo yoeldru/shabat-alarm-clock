@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:45 (Asia/Jerusalem)
+// Written: 2026-10-29 21:45, updated 2026-10-29 23:40 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.content.BroadcastReceiver
@@ -69,8 +69,8 @@ class RingActivity : AppCompatActivity() {
             })
         } else {
             shabbatNote.visibility = View.GONE
-            if (alarm.snoozeEnabled) {
-                snooze.text = "נודניק (${alarm.snoozeMinutes} דקות)"
+            if (alarm.canSnooze()) {
+                snooze.text = "נודניק (${alarm.snoozeMinutes} דקות)${alarm.snoozesLeftText()}"
                 snooze.setOnClickListener {
                     AlarmService.send(this, AlarmService.ACTION_SNOOZE); finish()
                 }

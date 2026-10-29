@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:55 (Asia/Jerusalem)
+// Written: 2026-10-29 21:55, updated 2026-10-29 23:45 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.app.Activity
@@ -14,7 +14,6 @@ import android.view.View
 import android.widget.Button
 import android.widget.RadioGroup
 import android.widget.TextView
-import android.widget.TimePicker
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -25,13 +24,20 @@ import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import com.google.android.material.timepicker.MaterialTimePicker
+import com.google.android.material.timepicker.TimeFormat
 
+/**
+ * Edits one alarm, or — when started with EXTRA_DEFAULTS — the global default settings
+ * that every new alarm starts from.
+ */
 class EditAlarmActivity : AppCompatActivity() {
 
     private lateinit var alarm: Alarm
     private var isNew = true
+    private var defaultsMode = false
 
-    private lateinit var timePicker: TimePicker
+    private lateinit var timeText: TextView
     private lateinit var labelInput: TextInputEditText
     private lateinit var secondsInput: TextInputEditText
     private lateinit var soundName: TextView
@@ -45,6 +51,8 @@ class EditAlarmActivity : AppCompatActivity() {
     private lateinit var snoozeSwitch: MaterialSwitch
     private lateinit var snoozeLayout: TextInputLayout
     private lateinit var snoozeInput: TextInputEditText
+    private lateinit var snoozeMaxLayout: TextInputLayout
+    private lateinit var snoozeMaxInput: TextInputEditText
     private lateinit var btnPreview: Button
     private val chips = mutableListOf<Chip>()
 
@@ -63,13 +71,12 @@ class EditAlarmActivity : AppCompatActivity() {
                 res.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             }
             if (uri == null) {
-                alarm.soundUri = null
-                alarm.soundName = "צליל ברירת מחדל"
+                setBeep()
             } else {
                 alarm.soundUri = uri.toString()
                 alarm.soundName = RingtoneManager.getRingtone(this, uri)?.getTitle(this) ?: "צליל"
+                showSoundName()
             }
-            soundName.text = "🔔 " + alarm.soundName
         }
 
     private val pickFile =
@@ -80,29 +87,38 @@ class EditAlarmActivity : AppCompatActivity() {
             } catch (_: Exception) {}
             alarm.soundUri = uri.toString()
             alarm.soundName = fileName(uri)
-            soundName.text = "🎵 " + alarm.soundName
+            showSoundName()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit)
 
-        val id = intent.getIntExtra("id", -1)
-        val existing = if (id >= 0) AlarmStore.get(this, id) else null
-        isNew = existing == null
-        alarm = existing ?: Alarm(id = AlarmStore.newId(this))
-        title = if (isNew) "שעון חדש" else "עריכת שעון"
+        defaultsMode = intent.getBooleanExtra(EXTRA_DEFAULTS, false)
+        if (defaultsMode) {
+            alarm = AlarmDefaults.get(this)
+            isNew = false
+            title = "הגדרות ברירת מחדל"
+        } else {
+            val id = intent.getIntExtra("id", -1)
+            val existing = if (id >= 0) AlarmStore.get(this, id) else null
+            isNew = existing == null
+            alarm = existing ?: AlarmDefaults.newAlarm(this)
+            title = if (isNew) "שעון חדש" else "עריכת שעון"
+        }
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         bindViews()
         fillFromAlarm()
+
+        // Like Google Clock: a new alarm opens straight into the dial
+        if (isNew && savedInstanceState == null) timeText.post { openTimePicker() }
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
 
     private fun bindViews() {
-        timePicker = findViewById(R.id.timePicker)
-        timePicker.setIs24HourView(true)
+        timeText = findViewById(R.id.timeText)
         labelInput = findViewById(R.id.labelInput)
         secondsInput = findViewById(R.id.secondsInput)
         soundName = findViewById(R.id.soundName)
@@ -116,7 +132,14 @@ class EditAlarmActivity : AppCompatActivity() {
         snoozeSwitch = findViewById(R.id.snoozeSwitch)
         snoozeLayout = findViewById(R.id.snoozeLayout)
         snoozeInput = findViewById(R.id.snoozeInput)
+        snoozeMaxLayout = findViewById(R.id.snoozeMaxLayout)
+        snoozeMaxInput = findViewById(R.id.snoozeMaxInput)
         btnPreview = findViewById(R.id.btnPreview)
+
+        findViewById<View>(R.id.alarmOnlySection).visibility = if (defaultsMode) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.defaultsNote).visibility = if (defaultsMode) View.VISIBLE else View.GONE
+
+        timeText.setOnClickListener { openTimePicker() }
 
         val group = findViewById<ChipGroup>(R.id.daysGroup)
         listOf("א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'").forEach { name ->
@@ -145,6 +168,7 @@ class EditAlarmActivity : AppCompatActivity() {
             pickRingtone.launch(i)
         }
         findViewById<Button>(R.id.btnFile).setOnClickListener { pickFile.launch(arrayOf("audio/*")) }
+        findViewById<Button>(R.id.btnBeep).setOnClickListener { setBeep() }
         btnPreview.setOnClickListener { if (previewing) endPreview() else startPreview() }
 
         modeGroup.setOnCheckedChangeListener { _, _ -> updateEnabledState() }
@@ -155,7 +179,7 @@ class EditAlarmActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btnSave).setOnClickListener { save() }
         val del = findViewById<Button>(R.id.btnDelete)
-        del.visibility = if (isNew) View.GONE else View.VISIBLE
+        del.visibility = if (isNew || defaultsMode) View.GONE else View.VISIBLE
         del.setOnClickListener {
             AlertDialog.Builder(this)
                 .setMessage("למחוק את השעון?")
@@ -169,17 +193,52 @@ class EditAlarmActivity : AppCompatActivity() {
         }
     }
 
+    /** Google-Clock style dial time picker */
+    private fun openTimePicker() {
+        if (supportFragmentManager.findFragmentByTag("time") != null) return
+        val picker = MaterialTimePicker.Builder()
+            .setTimeFormat(TimeFormat.CLOCK_24H)
+            .setInputMode(MaterialTimePicker.INPUT_MODE_CLOCK)
+            .setHour(alarm.hour)
+            .setMinute(alarm.minute)
+            .setTitleText("בחירת שעה")
+            .setPositiveButtonText("אישור")
+            .setNegativeButtonText("ביטול")
+            .build()
+        picker.addOnPositiveButtonClickListener {
+            alarm.hour = picker.hour
+            alarm.minute = picker.minute
+            timeText.text = alarm.timeText()
+        }
+        picker.show(supportFragmentManager, "time")
+    }
+
+    private fun setBeep() {
+        alarm.soundUri = null
+        alarm.soundName = Alarm.BEEP_NAME
+        showSoundName()
+    }
+
+    private fun showSoundName() {
+        val icon = when {
+            alarm.soundUri == null -> "📢 "
+            alarm.soundUri!!.startsWith("content://com.android") ||
+                alarm.soundUri!!.contains("document") -> "🎵 "
+            else -> "🔔 "
+        }
+        soundName.text = icon + alarm.soundName
+    }
+
     private fun setDays(mask: Int) {
         chips.forEachIndexed { i, c -> c.isChecked = mask and (1 shl i) != 0 }
     }
 
     private fun fillFromAlarm() {
-        timePicker.hour = alarm.hour
-        timePicker.minute = alarm.minute
+        timeText.text = alarm.timeText()
         labelInput.setText(alarm.label)
         setDays(alarm.days)
         secondsInput.setText(alarm.ringSeconds.toString())
-        soundName.text = (if (alarm.soundUri?.startsWith("content://media") == false) "🎵 " else "🔔 ") + alarm.soundName
+        showSoundName()
         modeGroup.check(
             when (alarm.mode) {
                 RingMode.SOUND -> R.id.modeSound
@@ -194,6 +253,7 @@ class EditAlarmActivity : AppCompatActivity() {
         shabbatSwitch.isChecked = alarm.shabbat
         snoozeSwitch.isChecked = alarm.snoozeEnabled
         snoozeInput.setText(alarm.snoozeMinutes.toString())
+        snoozeMaxInput.setText(alarm.snoozeMax.toString())
         updateEnabledState()
     }
 
@@ -204,16 +264,16 @@ class EditAlarmActivity : AppCompatActivity() {
         gradualLayout.visibility = if (soundOn && gradualSwitch.isChecked) View.VISIBLE else View.GONE
         val shabbat = shabbatSwitch.isChecked
         snoozeSwitch.isEnabled = !shabbat
-        snoozeLayout.visibility = if (!shabbat && snoozeSwitch.isChecked) View.VISIBLE else View.GONE
+        val showSnooze = !shabbat && snoozeSwitch.isChecked
+        snoozeLayout.visibility = if (showSnooze) View.VISIBLE else View.GONE
+        snoozeMaxLayout.visibility = if (showSnooze) View.VISIBLE else View.GONE
     }
 
     private fun readInt(e: TextInputEditText, def: Int, min: Int, max: Int): Int =
         (e.text?.toString()?.trim()?.toIntOrNull() ?: def).coerceIn(min, max)
 
-    /** Copies UI values into [alarm] */
+    /** Copies UI values into [alarm] (time is updated directly by the picker) */
     private fun collect() {
-        alarm.hour = timePicker.hour
-        alarm.minute = timePicker.minute
         alarm.label = labelInput.text?.toString()?.trim() ?: ""
         var mask = 0
         chips.forEachIndexed { i, c -> if (c.isChecked) mask = mask or (1 shl i) }
@@ -230,13 +290,21 @@ class EditAlarmActivity : AppCompatActivity() {
         alarm.shabbat = shabbatSwitch.isChecked
         alarm.snoozeEnabled = snoozeSwitch.isChecked && !alarm.shabbat
         alarm.snoozeMinutes = readInt(snoozeInput, 5, 1, 60)
+        alarm.snoozeMax = readInt(snoozeMaxInput, 3, 0, 99)
     }
 
     private fun save() {
         endPreview()
         collect()
+        if (defaultsMode) {
+            AlarmDefaults.save(this, alarm)
+            Toast.makeText(this, "ברירת המחדל נשמרה — תחול על שעונים חדשים", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
         alarm.enabled = true
         alarm.snoozeAt = 0L
+        alarm.snoozeCount = 0
         AlarmStore.save(this, alarm)
         AlarmScheduler.schedule(this, alarm)
         val mins = (alarm.nextTrigger() - System.currentTimeMillis()) / 60000
@@ -272,5 +340,9 @@ class EditAlarmActivity : AppCompatActivity() {
             }
         } catch (_: Exception) {}
         return "קובץ שמע"
+    }
+
+    companion object {
+        const val EXTRA_DEFAULTS = "defaults"
     }
 }

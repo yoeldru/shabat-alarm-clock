@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:35 (Asia/Jerusalem)
+// Written: 2026-10-29 21:35, updated 2026-10-29 23:40 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.content.Context
@@ -23,21 +23,29 @@ data class Alarm(
     var days: Int = 0,
     /** How many seconds the alarm rings before stopping by itself */
     var ringSeconds: Int = 60,
-    /** null = default alarm sound */
+    /** null = built-in beep-beep */
     var soundUri: String? = null,
-    var soundName: String = "צליל ברירת מחדל",
+    var soundName: String = BEEP_NAME,
     var mode: Int = RingMode.SOUND_VIBRATE,
     var volume: Int = 80,
     var gradual: Boolean = false,
     var gradualSeconds: Int = 20,
     var snoozeEnabled: Boolean = true,
     var snoozeMinutes: Int = 5,
+    /** Max snoozes per ring, 0 = unlimited */
+    var snoozeMax: Int = 3,
+    /** Snoozes used so far in the current ring cycle */
+    var snoozeCount: Int = 0,
     /** Shabbat mode: cannot be stopped, rings for ringSeconds and stops by itself */
     var shabbat: Boolean = false,
     /** Pending snooze time in millis, 0 = none */
     var snoozeAt: Long = 0L
 ) {
     fun isDayOn(calendarDay: Int) = days and (1 shl (calendarDay - 1)) != 0
+
+    fun canSnooze() = !shabbat && snoozeEnabled && (snoozeMax == 0 || snoozeCount < snoozeMax)
+
+    fun snoozesLeftText() = if (snoozeMax == 0) "" else " · נשארו ${snoozeMax - snoozeCount}"
 
     fun timeText() = String.format(java.util.Locale.US, "%02d:%02d", hour, minute)
 
@@ -74,10 +82,13 @@ data class Alarm(
         put("soundUri", soundUri ?: ""); put("soundName", soundName); put("mode", mode)
         put("volume", volume); put("gradual", gradual); put("gradualSeconds", gradualSeconds)
         put("snoozeEnabled", snoozeEnabled); put("snoozeMinutes", snoozeMinutes)
+        put("snoozeMax", snoozeMax); put("snoozeCount", snoozeCount)
         put("shabbat", shabbat); put("snoozeAt", snoozeAt)
     }
 
     companion object {
+        const val BEEP_NAME = "ביפ ביפ (מובנה)"
+
         fun fromJson(o: JSONObject) = Alarm(
             id = o.getInt("id"),
             hour = o.optInt("hour", 7),
@@ -87,13 +98,16 @@ data class Alarm(
             days = o.optInt("days", 0),
             ringSeconds = o.optInt("ringSeconds", 60),
             soundUri = o.optString("soundUri", "").ifEmpty { null },
-            soundName = o.optString("soundName", "צליל ברירת מחדל"),
+            soundName = if (o.optString("soundUri", "").isEmpty()) BEEP_NAME
+                        else o.optString("soundName", "צליל"),
             mode = o.optInt("mode", RingMode.SOUND_VIBRATE),
             volume = o.optInt("volume", 80),
             gradual = o.optBoolean("gradual", false),
             gradualSeconds = o.optInt("gradualSeconds", 20),
             snoozeEnabled = o.optBoolean("snoozeEnabled", true),
             snoozeMinutes = o.optInt("snoozeMinutes", 5),
+            snoozeMax = o.optInt("snoozeMax", 3),
+            snoozeCount = o.optInt("snoozeCount", 0),
             shabbat = o.optBoolean("shabbat", false),
             snoozeAt = o.optLong("snoozeAt", 0L)
         )
@@ -133,4 +147,25 @@ object AlarmStore {
     }
 
     fun newId(ctx: Context): Int = (all(ctx).maxOfOrNull { it.id } ?: 0) + 1
+}
+
+/** Global defaults — every new alarm starts from these settings */
+object AlarmDefaults {
+    private const val PREFS = "defaults"
+    private const val KEY = "alarm"
+
+    fun get(ctx: Context): Alarm {
+        val raw = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
+        return if (raw == null) Alarm(id = 0) else Alarm.fromJson(JSONObject(raw))
+    }
+
+    fun save(ctx: Context, a: Alarm) {
+        val copy = a.copy(id = 0, label = "", days = 0, enabled = true, snoozeAt = 0L, snoozeCount = 0)
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY, copy.toJson().toString()).apply()
+    }
+
+    /** A brand-new alarm built from the defaults */
+    fun newAlarm(ctx: Context): Alarm =
+        get(ctx).copy(id = AlarmStore.newId(ctx), enabled = true, snoozeAt = 0L, snoozeCount = 0)
 }

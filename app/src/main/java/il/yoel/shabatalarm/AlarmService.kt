@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:40 (Asia/Jerusalem)
+// Written: 2026-10-29 21:40, updated 2026-10-29 23:40 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.app.Notification
@@ -44,8 +44,9 @@ class AlarmService : Service() {
             }
             ACTION_SNOOZE -> {
                 val a = current
-                if (a != null && !a.shabbat && a.snoozeEnabled) {
+                if (a != null && a.canSnooze()) {
                     val saved = AlarmStore.get(this, a.id) ?: a
+                    saved.snoozeCount = a.snoozeCount + 1
                     saved.snoozeAt = System.currentTimeMillis() + saved.snoozeMinutes * 60_000L
                     AlarmStore.save(this, saved)
                     AlarmScheduler.schedule(this, saved)
@@ -67,8 +68,9 @@ class AlarmService : Service() {
         // Update state + schedule the next occurrence
         if (isSnooze) {
             alarm.snoozeAt = 0L
-        } else if (alarm.days == 0) {
-            alarm.enabled = false // one-time alarm
+        } else {
+            alarm.snoozeCount = 0 // a fresh ring cycle
+            if (alarm.days == 0) alarm.enabled = false // one-time alarm
         }
         AlarmStore.save(this, alarm)
         AlarmScheduler.schedule(this, alarm)
@@ -140,8 +142,8 @@ class AlarmService : Service() {
             .setFullScreenIntent(fullScreen, true)
 
         if (!alarm.shabbat) {
-            if (alarm.snoozeEnabled) {
-                b.addAction(0, "נודניק (${alarm.snoozeMinutes} ד')", servicePending(ACTION_SNOOZE, 2))
+            if (alarm.canSnooze()) {
+                b.addAction(0, "נודניק (${alarm.snoozeMinutes} ד')${alarm.snoozesLeftText()}", servicePending(ACTION_SNOOZE, 2))
             }
             b.addAction(0, "כיבוי", servicePending(ACTION_STOP, 3))
         }
