@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Written: 2026-10-29 21:55, updated 2026-10-29 23:45 (Asia/Jerusalem) -->
+<!-- Written: 2026-10-29 21:55, updated 2026-11-14 21:20 (Asia/Jerusalem) -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -160,10 +160,10 @@
 
         <Button
             android:id="@+id/btnBeep"
-            style="@style/Widget.Material3.Button.TextButton"
+            style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="חזרה לביפ ביפ המובנה" />
+            android:text="📢 צלילים מובנים (ביפ / טלפון ישן)" />
 
         <Button
             android:id="@+id/btnPreview"
@@ -239,13 +239,28 @@
         <!-- Shabbat -->
         <TextView
             style="@style/SectionTitle"
-            android:text="מצב שבת וחג" />
+            android:text="כיבוי הצלצול" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/dismissSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="אפשר לכבות את הצלצול" />
+
+        <TextView
+            android:id="@+id/dismissNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.7"
+            android:text="כבוי: אין כפתור כיבוי — הצלצול נמשך את מספר השניות שנקבע ונפסק מעצמו (נודניק עדיין אפשרי אם הוא מופעל)."
+            android:textSize="13sp" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/shabbatSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🕯️ אי אפשר לכבות את הצלצול" />
+            android:layout_marginTop="12dp"
+            android:text="🕯️ מצב שבת וחג" />
 
         <TextView
             android:layout_width="match_parent"

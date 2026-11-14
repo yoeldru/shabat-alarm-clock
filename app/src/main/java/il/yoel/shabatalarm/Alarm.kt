@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:35, updated 2026-10-29 23:40 (Asia/Jerusalem)
+// Written: 2026-10-29 21:35, updated 2026-11-14 21:15 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.content.Context
@@ -36,12 +36,16 @@ data class Alarm(
     var snoozeMax: Int = 3,
     /** Snoozes used so far in the current ring cycle */
     var snoozeCount: Int = 0,
+    /** false = no "stop" button; the alarm rings for ringSeconds and stops by itself */
+    var allowDismiss: Boolean = true,
     /** Shabbat mode: cannot be stopped, rings for ringSeconds and stops by itself */
     var shabbat: Boolean = false,
     /** Pending snooze time in millis, 0 = none */
     var snoozeAt: Long = 0L
 ) {
     fun isDayOn(calendarDay: Int) = days and (1 shl (calendarDay - 1)) != 0
+
+    fun canDismiss() = !shabbat && allowDismiss
 
     fun canSnooze() = !shabbat && snoozeEnabled && (snoozeMax == 0 || snoozeCount < snoozeMax)
 
@@ -83,11 +87,11 @@ data class Alarm(
         put("volume", volume); put("gradual", gradual); put("gradualSeconds", gradualSeconds)
         put("snoozeEnabled", snoozeEnabled); put("snoozeMinutes", snoozeMinutes)
         put("snoozeMax", snoozeMax); put("snoozeCount", snoozeCount)
-        put("shabbat", shabbat); put("snoozeAt", snoozeAt)
+        put("shabbat", shabbat); put("allowDismiss", allowDismiss); put("snoozeAt", snoozeAt)
     }
 
     companion object {
-        const val BEEP_NAME = "ביפ ביפ (מובנה)"
+        val BEEP_NAME = BuiltinSounds.name(null)
 
         fun fromJson(o: JSONObject) = Alarm(
             id = o.getInt("id"),
@@ -98,7 +102,7 @@ data class Alarm(
             days = o.optInt("days", 0),
             ringSeconds = o.optInt("ringSeconds", 60),
             soundUri = o.optString("soundUri", "").ifEmpty { null },
-            soundName = if (o.optString("soundUri", "").isEmpty()) BEEP_NAME
+            soundName = if (o.optString("soundUri", "").isEmpty()) BuiltinSounds.name(null)
                         else o.optString("soundName", "צליל"),
             mode = o.optInt("mode", RingMode.SOUND_VIBRATE),
             volume = o.optInt("volume", 80),
@@ -109,6 +113,7 @@ data class Alarm(
             snoozeMax = o.optInt("snoozeMax", 3),
             snoozeCount = o.optInt("snoozeCount", 0),
             shabbat = o.optBoolean("shabbat", false),
+            allowDismiss = o.optBoolean("allowDismiss", true),
             snoozeAt = o.optLong("snoozeAt", 0L)
         )
     }
@@ -168,4 +173,25 @@ object AlarmDefaults {
     /** A brand-new alarm built from the defaults */
     fun newAlarm(ctx: Context): Alarm =
         get(ctx).copy(id = AlarmStore.newId(ctx), enabled = true, snoozeAt = 0L, snoozeCount = 0)
+}
+
+/** Sounds bundled inside the app. Stored in Alarm.soundUri as "builtin:<key>"; null = the first beep */
+object BuiltinSounds {
+    data class Sound(val key: String, val name: String, val resId: Int)
+
+    val all = listOf(
+        Sound("beep", "ביפ ביפ", R.raw.beep),
+        Sound("beep2", "ביפ ביפ מהיר (דיגיטלי)", R.raw.beep2),
+        Sound("ring1", "טלפון ישן — פעמון", R.raw.ring1),
+        Sound("ring2", "טלפון ישן — רינג כפול", R.raw.ring2)
+    )
+
+    fun isBuiltin(uri: String?) = uri == null || uri.startsWith("builtin:")
+
+    fun find(uri: String?): Sound? =
+        if (uri == null) all[0] else all.firstOrNull { "builtin:" + it.key == uri }
+
+    fun name(uri: String?) = (find(uri) ?: all[0]).name + " (מובנה)"
+
+    fun uriFor(s: Sound): String? = if (s.key == "beep") null else "builtin:" + s.key
 }

@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:50, updated 2026-10-29 23:58 (Asia/Jerusalem)
+// Written: 2026-10-29 21:50, updated 2026-11-14 21:25 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.Manifest
@@ -91,6 +91,7 @@ class MainActivity : AppCompatActivity() {
             val tags = mutableListOf<String>()
             if (a.label.isNotBlank()) tags.add(a.label)
             if (a.shabbat) tags.add("🕯️ מצב שבת")
+            else if (!a.allowDismiss) tags.add("🔒 בלי כיבוי")
             tags.add("${a.ringSeconds} שנ'")
             when (a.mode) {
                 RingMode.VIBRATE_ONLY -> tags.add("רטט בלבד")

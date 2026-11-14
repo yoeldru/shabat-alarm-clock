@@ -59,27 +59,30 @@ class RingActivity : AppCompatActivity() {
         val stop = findViewById<Button>(R.id.btnStop)
         val shabbatNote = findViewById<TextView>(R.id.shabbatNote)
 
-        if (alarm.shabbat) {
-            snooze.visibility = View.GONE
-            stop.visibility = View.GONE
-            shabbatNote.visibility = View.VISIBLE
-            // Back button does nothing in Shabbat mode
-            onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {}
-            })
-        } else {
-            shabbatNote.visibility = View.GONE
-            if (alarm.canSnooze()) {
-                snooze.text = "נודניק (${alarm.snoozeMinutes} דקות)${alarm.snoozesLeftText()}"
-                snooze.setOnClickListener {
-                    AlarmService.send(this, AlarmService.ACTION_SNOOZE); finish()
-                }
-            } else {
-                snooze.visibility = View.GONE
+        // Updated 2026-11-14 21:15: "stop" depends on the per-alarm allowDismiss option
+        if (alarm.canSnooze()) {
+            snooze.text = "נודניק (${alarm.snoozeMinutes} דקות)${alarm.snoozesLeftText()}"
+            snooze.setOnClickListener {
+                AlarmService.send(this, AlarmService.ACTION_SNOOZE); finish()
             }
+        } else {
+            snooze.visibility = View.GONE
+        }
+
+        if (alarm.canDismiss()) {
+            shabbatNote.visibility = View.GONE
             stop.setOnClickListener {
                 AlarmService.send(this, AlarmService.ACTION_STOP); finish()
             }
+        } else {
+            stop.visibility = View.GONE
+            shabbatNote.visibility = View.VISIBLE
+            shabbatNote.text = if (alarm.shabbat) "מצב שבת\nהצלצול ייפסק מעצמו"
+            else "לא ניתן לכבות\nהצלצול ייפסק מעצמו"
+            // Back button does nothing when the alarm can't be turned off
+            onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {}
+            })
         }
 
         ContextCompat.registerReceiver(

@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:40, updated 2026-10-29 23:40 (Asia/Jerusalem)
+// Written: 2026-10-29 21:40, updated 2026-11-14 21:15 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.content.Context
@@ -50,8 +50,9 @@ class AlarmSound(private val ctx: Context) {
             savedVolume = -1
         }
 
+        val builtin = BuiltinSounds.find(alarm.soundUri)
         val candidates = listOfNotNull(
-            alarm.soundUri?.let { Uri.parse(it) },
+            if (builtin != null) resUri(ctx, builtin.resId) else alarm.soundUri?.let { Uri.parse(it) },
             beepUri(ctx),
             RingtoneManager.getActualDefaultRingtoneUri(ctx, RingtoneManager.TYPE_ALARM),
             Settings.System.DEFAULT_ALARM_ALERT_URI,
@@ -112,8 +113,10 @@ class AlarmSound(private val ctx: Context) {
 
     companion object {
         /** The built-in beep-beep sound bundled with the app */
-        fun beepUri(ctx: Context): Uri =
-            Uri.parse("android.resource://${ctx.packageName}/${R.raw.beep}")
+        fun resUri(ctx: Context, resId: Int): Uri =
+            Uri.parse("android.resource://${ctx.packageName}/$resId")
+
+        fun beepUri(ctx: Context): Uri = resUri(ctx, R.raw.beep)
     }
 
     fun stop() {

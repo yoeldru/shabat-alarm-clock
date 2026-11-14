@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:55, updated 2026-10-29 23:45 (Asia/Jerusalem)
+// Written: 2026-10-29 21:55, updated 2026-11-14 21:20 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.app.Activity
@@ -48,6 +48,7 @@ class EditAlarmActivity : AppCompatActivity() {
     private lateinit var gradualLayout: TextInputLayout
     private lateinit var gradualInput: TextInputEditText
     private lateinit var shabbatSwitch: MaterialSwitch
+    private lateinit var dismissSwitch: MaterialSwitch
     private lateinit var snoozeSwitch: MaterialSwitch
     private lateinit var snoozeLayout: TextInputLayout
     private lateinit var snoozeInput: TextInputEditText
@@ -129,6 +130,7 @@ class EditAlarmActivity : AppCompatActivity() {
         gradualLayout = findViewById(R.id.gradualLayout)
         gradualInput = findViewById(R.id.gradualInput)
         shabbatSwitch = findViewById(R.id.shabbatSwitch)
+        dismissSwitch = findViewById(R.id.dismissSwitch)
         snoozeSwitch = findViewById(R.id.snoozeSwitch)
         snoozeLayout = findViewById(R.id.snoozeLayout)
         snoozeInput = findViewById(R.id.snoozeInput)
@@ -163,17 +165,22 @@ class EditAlarmActivity : AppCompatActivity() {
                 putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "בחירת צליל")
                 putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
                 putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                alarm.soundUri?.let { putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it)) }
+                alarm.soundUri?.takeIf { !BuiltinSounds.isBuiltin(it) }
+                    ?.let { putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it)) }
             }
             pickRingtone.launch(i)
         }
         findViewById<Button>(R.id.btnFile).setOnClickListener { pickFile.launch(arrayOf("audio/*")) }
-        findViewById<Button>(R.id.btnBeep).setOnClickListener { setBeep() }
+        findViewById<Button>(R.id.btnBeep).setOnClickListener { pickBuiltin() }
         btnPreview.setOnClickListener { if (previewing) endPreview() else startPreview() }
 
         modeGroup.setOnCheckedChangeListener { _, _ -> updateEnabledState() }
         gradualSwitch.setOnCheckedChangeListener { _, _ -> updateEnabledState() }
-        shabbatSwitch.setOnCheckedChangeListener { _, _ -> updateEnabledState() }
+        shabbatSwitch.setOnCheckedChangeListener { _, on ->
+            if (!on) dismissSwitch.isChecked = alarm.allowDismiss
+            updateEnabledState()
+        }
+        dismissSwitch.setOnCheckedChangeListener { _, _ -> updateEnabledState() }
         snoozeSwitch.setOnCheckedChangeListener { _, _ -> updateEnabledState() }
         volumeSlider.addOnChangeListener { _, v, _ -> volumeTitle.text = "עוצמה: ${v.toInt()}%" }
 
@@ -213,15 +220,37 @@ class EditAlarmActivity : AppCompatActivity() {
         picker.show(supportFragmentManager, "time")
     }
 
-    private fun setBeep() {
-        alarm.soundUri = null
-        alarm.soundName = Alarm.BEEP_NAME
+    private fun setBeep() = setBuiltin(BuiltinSounds.all[0])
+
+    private fun setBuiltin(b: BuiltinSounds.Sound) {
+        alarm.soundUri = BuiltinSounds.uriFor(b)
+        alarm.soundName = BuiltinSounds.name(alarm.soundUri)
         showSoundName()
+    }
+
+    /** Dialog of the sounds bundled in the app; tapping one plays a short sample */
+    private fun pickBuiltin() {
+        val list = BuiltinSounds.all
+        var chosen = list.indexOf(BuiltinSounds.find(alarm.soundUri)).coerceAtLeast(0)
+        val dlg = AlertDialog.Builder(this)
+            .setTitle("צלילים מובנים")
+            .setSingleChoiceItems(list.map { it.name }.toTypedArray(), chosen) { _, which ->
+                chosen = which
+                endPreview()
+                collect()
+                previewSound(alarm.copy(soundUri = BuiltinSounds.uriFor(list[which]), gradual = false,
+                    mode = RingMode.SOUND))
+            }
+            .setPositiveButton("בחירה") { _, _ -> setBuiltin(list[chosen]) }
+            .setNegativeButton("ביטול", null)
+            .create()
+        dlg.setOnDismissListener { endPreview() }
+        dlg.show()
     }
 
     private fun showSoundName() {
         val icon = when {
-            alarm.soundUri == null -> "📢 "
+            BuiltinSounds.isBuiltin(alarm.soundUri) -> "📢 "
             alarm.soundUri!!.startsWith("content://com.android") ||
                 alarm.soundUri!!.contains("document") -> "🎵 "
             else -> "🔔 "
@@ -251,6 +280,7 @@ class EditAlarmActivity : AppCompatActivity() {
         gradualSwitch.isChecked = alarm.gradual
         gradualInput.setText(alarm.gradualSeconds.toString())
         shabbatSwitch.isChecked = alarm.shabbat
+        dismissSwitch.isChecked = alarm.allowDismiss
         snoozeSwitch.isChecked = alarm.snoozeEnabled
         snoozeInput.setText(alarm.snoozeMinutes.toString())
         snoozeMaxInput.setText(alarm.snoozeMax.toString())
@@ -263,6 +293,8 @@ class EditAlarmActivity : AppCompatActivity() {
         gradualSwitch.isEnabled = soundOn
         gradualLayout.visibility = if (soundOn && gradualSwitch.isChecked) View.VISIBLE else View.GONE
         val shabbat = shabbatSwitch.isChecked
+        dismissSwitch.isEnabled = !shabbat
+        if (shabbat) dismissSwitch.isChecked = false
         snoozeSwitch.isEnabled = !shabbat
         val showSnooze = !shabbat && snoozeSwitch.isChecked
         snoozeLayout.visibility = if (showSnooze) View.VISIBLE else View.GONE
@@ -288,6 +320,8 @@ class EditAlarmActivity : AppCompatActivity() {
         alarm.gradual = gradualSwitch.isChecked
         alarm.gradualSeconds = readInt(gradualInput, 20, 1, 3600)
         alarm.shabbat = shabbatSwitch.isChecked
+        // In Shabbat mode the switch is forced off on screen; keep the user's own choice for later
+        if (!alarm.shabbat) alarm.allowDismiss = dismissSwitch.isChecked
         alarm.snoozeEnabled = snoozeSwitch.isChecked && !alarm.shabbat
         alarm.snoozeMinutes = readInt(snoozeInput, 5, 1, 60)
         alarm.snoozeMax = readInt(snoozeMaxInput, 3, 0, 99)
@@ -314,7 +348,10 @@ class EditAlarmActivity : AppCompatActivity() {
 
     private fun startPreview() {
         collect()
-        val test = alarm.copy(gradual = false)
+        previewSound(alarm.copy(gradual = false))
+    }
+
+    private fun previewSound(test: Alarm) {
         preview.start(test)
         previewing = true
         btnPreview.text = "■ עצירה"

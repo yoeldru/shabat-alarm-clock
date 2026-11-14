@@ -1,4 +1,4 @@
-// Written: 2026-10-29 21:40, updated 2026-10-29 23:40 (Asia/Jerusalem)
+// Written: 2026-10-29 21:40, updated 2026-11-14 21:15 (Asia/Jerusalem)
 package il.yoel.shabatalarm
 
 import android.app.Notification
@@ -40,7 +40,7 @@ class AlarmService : Service() {
                 intent.getBooleanExtra(AlarmReceiver.EXTRA_SNOOZE, false)
             )
             ACTION_STOP -> {
-                if (current?.shabbat != true) finishRinging()
+                if (current?.canDismiss() == true) finishRinging()
             }
             ACTION_SNOOZE -> {
                 val a = current
@@ -127,6 +127,7 @@ class AlarmService : Service() {
         )
         val title = if (alarm.label.isNotBlank()) alarm.label else "שעון מעורר"
         val text = if (alarm.shabbat) "מצב שבת — ייפסק לבד בעוד ${alarm.ringSeconds} שניות"
+        else if (!alarm.allowDismiss) "לא ניתן לכבות — ייפסק לבד בעוד ${alarm.ringSeconds} שניות"
         else "${alarm.timeText()} — מצלצל"
 
         val b = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -145,7 +146,7 @@ class AlarmService : Service() {
             if (alarm.canSnooze()) {
                 b.addAction(0, "נודניק (${alarm.snoozeMinutes} ד')${alarm.snoozesLeftText()}", servicePending(ACTION_SNOOZE, 2))
             }
-            b.addAction(0, "כיבוי", servicePending(ACTION_STOP, 3))
+            if (alarm.canDismiss()) b.addAction(0, "כיבוי", servicePending(ACTION_STOP, 3))
         }
         return b.build()
     }
